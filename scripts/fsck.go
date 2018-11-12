@@ -4,6 +4,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,10 +12,19 @@ import (
 	"time"
 )
 
+const contentMismatchType = "content_mismatch"
+
 func main() {
 	dt := time.Now()
-	inFile := "instances.txt"
-	outFileData := fmt.Sprintf("/tmp/out.%s.txt", dt.Format("01-02-2006"))
+	args := os.Args[1:]
+	if len(args) != 1 {
+		fmt.Println("You must provide the input filename")
+		return
+	}
+
+	inFileArg := args[0]
+	inFile := inFileArg
+	outFileData := fmt.Sprintf("/tmp/out.%s.json", dt.Format("01-02-2006"))
 	outFileInstancesClean := fmt.Sprintf("/tmp/instancesClean.%s.txt", dt.Format("01-02-2006"))
 	outFileInstancesCorrupted := fmt.Sprintf("/tmp/instancesCorrupted.%s.txt", dt.Format("01-02-2006"))
 
@@ -25,8 +35,8 @@ func main() {
 
 	defer f.Close()
 	defer outFile.Close()
-	defer outFileI.Close()
 	defer outFileC.Close()
+	defer outFileI.Close()
 
 	scanner := bufio.NewScanner(f)
 	scanner.Split(bufio.ScanLines)
@@ -41,8 +51,7 @@ func main() {
 		output, err := exec.Command("cozy-stack", "instances", "fsck", instanceName, "--json").Output()
 
 		if len(output) == 0 {
-			s := fmt.Sprintf("%s\n", instanceName)
-			outFileI.WriteString(s)
+			outFileI.WriteString(fmt.Sprintf("%s\n", instanceName))
 		} else {
 			outFileC.WriteString(fmt.Sprintf("%s\n", instanceName))
 			// Reading the command return output
@@ -53,7 +62,15 @@ func main() {
 				if err != nil {
 					os.Stderr.WriteString(err.Error())
 				} else {
-					t = append(t, scan.Text())
+					jsonLine := make(map[string]interface{})
+					line := scan.Text()
+					err := json.Unmarshal([]byte(line), &jsonLine)
+
+					if err == nil && jsonLine["type"] == contentMismatchType {
+						t = append(t, line)
+					} else if err != nil {
+						fmt.Println(err)
+					}
 				}
 			}
 
