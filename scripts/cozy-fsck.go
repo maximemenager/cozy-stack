@@ -53,8 +53,8 @@ func main() {
 
 		if len(output) == 0 {
 			outFileI.WriteString(fmt.Sprintf("%s\n", instanceName))
+			continue
 		} else {
-			outFileC.WriteString(fmt.Sprintf("%s\n", instanceName))
 			// Reading the command return output
 			scan := bufio.NewScanner(bytes.NewReader(output))
 			scan.Split(bufio.ScanLines)
@@ -88,9 +88,16 @@ func main() {
 			// Append the instance
 			joinedLines := strings.Join(t, ",")
 			if len(joinedLines) > 0 {
+				outFileC.WriteString(fmt.Sprintf("%s\n", instanceName))
 				instance := fmt.Sprintf("\"%s\":[%s]", instanceName, joinedLines)
 				instances = append(instances, instance)
+			} else {
+				// If there is no issues ("t" is empty, without "index_missing" or
+				// "content_mismatch" != 64ko), we can consider the instance as
+				// clean
+				outFileI.WriteString(fmt.Sprintf("%s\n", instanceName))
 			}
+
 		}
 	}
 
