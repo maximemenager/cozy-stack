@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"strings"
@@ -67,7 +68,17 @@ func main() {
 					err := json.Unmarshal([]byte(line), &jsonLine)
 
 					if err == nil && jsonLine["type"] == contentMismatchType {
-						t = append(t, line)
+						cm := jsonLine["content_mismatch"]
+						s := cm.(map[string]interface{})
+
+						si := s["size_index"].(float64)
+						sf := s["size_file"].(float64)
+
+						// Get only the 64k differences
+						size := int64(64 * 1024)
+						if math.Abs(si-sf) == float64(size) {
+							t = append(t, line)
+						}
 					} else if err != nil {
 						fmt.Println(err)
 					}
