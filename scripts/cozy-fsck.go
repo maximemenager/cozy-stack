@@ -87,8 +87,10 @@ func main() {
 
 			// Append the instance
 			joinedLines := strings.Join(t, ",")
-			instance := fmt.Sprintf("\"%s\":[%s]", instanceName, joinedLines)
-			instances = append(instances, instance)
+			if len(joinedLines) > 0 {
+				instance := fmt.Sprintf("\"%s\":[%s]", instanceName, joinedLines)
+				instances = append(instances, instance)
+			}
 		}
 	}
 
