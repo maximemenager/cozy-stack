@@ -68,6 +68,13 @@ func main() {
 					err := json.Unmarshal([]byte(line), &jsonLine)
 
 					if err == nil && jsonLine["type"] == contentMismatchType {
+
+						// Skip files with cozy_trash in filepath
+						fileDoc := jsonLine["file_doc"].(map[string]interface{})
+						if err != nil && strings.Contains(fileDoc["path"].(string), ".cozy_trash") {
+							continue
+						}
+
 						cm := jsonLine["content_mismatch"]
 						s := cm.(map[string]interface{})
 
