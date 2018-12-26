@@ -24,6 +24,8 @@ const (
 	Done State = "done"
 	// Errored state
 	Errored State = "errored"
+	// Unknown state
+	Unknown State = "unknown"
 )
 
 const (

@@ -218,7 +218,7 @@ func GetTriggerState(db prefixer.Prefixer, triggerID string) (*TriggerState, err
 
 	var state TriggerState
 
-	state.Status = Done
+	state.Status = Unknown
 	state.TID = triggerID
 
 	// jobs are ordered from the oldest to most recent job
