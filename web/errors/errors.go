@@ -117,7 +117,7 @@ func HTMLErrorHandler(err error, c echo.Context) {
 	}
 
 	if title == "" {
-		if status >= 500 {
+		if status >= 500 && status != 503 {
 			title = "Error Internal Server Error Title"
 			value = "Error Internal Server Error Message"
 		} else {
