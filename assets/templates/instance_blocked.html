@@ -16,21 +16,13 @@
 <body>
     <main role="application">
         <section class="popup">
-            <header>
+            <header class="compat-header">
                 <a href="https://cozy.io" target="_blank" title="Cozy Website"></a>
+                <h1>{{t "Error Message instance blocked"}}</h1>
             </header>
             <div class="container">
-                <h1>{{t "Error Message instance blocked"}}</h1>
-                <div>
-                    <div class="error">
-                        <div class="alert">
-                            <p>{{.Reason}}</p>
-                            <div>
-                                <p><strong>{{t "Error Contact instance blocked" }} <a href="mailto:contact@cozycloud.cc">contact@cozycloud.cc</a>.</strong></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <p>{{.Reason}}</p>
+                <p><strong>{{t "Error Contact instance blocked" }} <a href="mailto:contact@cozycloud.cc">contact@cozycloud.cc</a>.</strong></p>
             </div>
         </section>
     </main>

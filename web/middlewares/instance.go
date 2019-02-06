@@ -48,7 +48,7 @@ func CheckInstanceBlocked(next echo.HandlerFunc) echo.HandlerFunc {
 		if i.CheckInstanceBlocked() {
 			// Standard checks
 			if i.BlockingReason == instance.BlockedLoginFailed.Code {
-				return c.Render(http.StatusOK, "instance_blocked.html", echo.Map{
+				return c.Render(http.StatusServiceUnavailable, "instance_blocked.html", echo.Map{
 					"Domain":      i.ContextualDomain(),
 					"ContextName": i.ContextName,
 					"Reason":      instance.BlockedLoginFailed.Message,
@@ -74,7 +74,11 @@ func CheckInstanceBlocked(next echo.HandlerFunc) echo.HandlerFunc {
 			case jsonapi.ContentType, echo.MIMEApplicationJSON:
 				return c.JSON(returnCode, i.Warnings())
 			default:
-				return echo.NewHTTPError(returnCode, reason)
+				return c.Render(returnCode, "instance_blocked.html", echo.Map{
+					"Domain":      i.ContextualDomain(),
+					"ContextName": i.ContextName,
+					"Reason":      reason,
+				})
 			}
 		}
 		return next(c)
