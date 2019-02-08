@@ -99,7 +99,7 @@ func CheckTOSDeadlineExpired(next echo.HandlerFunc) echo.HandlerFunc {
 
 		// Skip check if the instance does not have a ManagerURL or a
 		// registerToken
-		if len(i.RegisterToken) > 0 || redirect == "" {
+		if len(i.RegisterToken) > 0 || redirect == "" || !i.OnboardingFinished {
 			return next(c)
 		}
 
