@@ -1,7 +1,13 @@
 package intent
 
 import (
+	"bytes"
+	"encoding/json"
+	"net/http"
 	"strings"
+
+	"github.com/cozy/cozy-stack/pkg/registry"
+	"github.com/cozy/cozy-stack/pkg/utils"
 
 	"github.com/cozy/cozy-stack/model/app"
 	"github.com/cozy/cozy-stack/model/instance"
@@ -18,13 +24,14 @@ type Service struct {
 // Intent is a struct for a call from a client-side app to have another app do
 // something for it
 type Intent struct {
-	IID         string    `json:"_id,omitempty"`
-	IRev        string    `json:"_rev,omitempty"`
-	Action      string    `json:"action"`
-	Type        string    `json:"type"`
-	Permissions []string  `json:"permissions"`
-	Client      string    `json:"client"`
-	Services    []Service `json:"services"`
+	IID               string    `json:"_id,omitempty"`
+	IRev              string    `json:"_rev,omitempty"`
+	Action            string    `json:"action"`
+	Type              string    `json:"type"`
+	Permissions       []string  `json:"permissions"`
+	Client            string    `json:"client"`
+	Services          []Service `json:"services"`
+	AvailableServices []string  `json:"available_services"`
 }
 
 // ID is used to implement the couchdb.Doc interface
@@ -88,6 +95,88 @@ func (in *Intent) FillServices(instance *instance.Instance) error {
 			in.Services = append(in.Services, service)
 		}
 	}
+	return nil
+}
+
+type tmp struct {
+	Data []*app.WebappManifest
+}
+
+// GetInstanceWebapps returns the list of available webapps for the instance
+func GetInstanceWebapps(inst *instance.Instance) ([]string, error) {
+	man := tmp{}
+	apps := []string{}
+	for _, regURL := range inst.Registries() {
+		url := regURL.String() + "registry?filter[type]=webapp"
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.NewDecoder(res.Body).Decode(&man)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, app := range man.Data {
+			slug := app.Slug()
+			if !utils.IsInArray(slug, apps) {
+				apps = append(apps, slug)
+			}
+		}
+	}
+
+	return apps, nil
+}
+
+// FindAvailableServices finds services which can answer to the intent from non-installed
+// instance webapps
+func (in *Intent) FindAvailableServices(inst *instance.Instance) error {
+	installedWebApps, err := app.ListWebapps(inst)
+	if err != nil {
+		return err
+	}
+
+	endSlugs := []string{}
+	webapps, err := GetInstanceWebapps(inst)
+	res := []*app.WebappManifest{}
+
+	for _, wa := range webapps {
+		found := false
+		for _, iwa := range installedWebApps {
+			if wa == iwa.Slug() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			endSlugs = append(endSlugs, wa)
+		}
+	}
+
+	for _, webapp := range endSlugs {
+		webappMan := app.WebappManifest{}
+		v, err := registry.GetLatestVersion(webapp, "stable", inst.Registries())
+		if err != nil {
+			continue
+		}
+		err = json.NewDecoder(bytes.NewReader(v.Manifest)).Decode(&webappMan)
+		if err != nil {
+			return err
+		}
+		res = append(res, &webappMan)
+	}
+
+	for _, man := range res {
+		if intent := man.FindIntent(in.Action, in.Type); intent != nil {
+			in.AvailableServices = append(in.AvailableServices, man.Slug())
+		}
+	}
+
 	return nil
 }
 
