@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/cozy/cozy-stack/pkg/registry"
 	"github.com/cozy/cozy-stack/pkg/utils"
@@ -106,6 +107,7 @@ type tmp struct {
 func GetInstanceWebapps(inst *instance.Instance) ([]string, error) {
 	man := tmp{}
 	apps := []string{}
+
 	for _, regURL := range inst.Registries() {
 		url := regURL.String() + "registry?filter[type]=webapp"
 		req, err := http.NewRequest("GET", url, nil)
@@ -133,9 +135,9 @@ func GetInstanceWebapps(inst *instance.Instance) ([]string, error) {
 	return apps, nil
 }
 
-// FindAvailableServices finds services which can answer to the intent from non-installed
-// instance webapps
-func (in *Intent) FindAvailableServices(inst *instance.Instance) error {
+// FindAvailableWebapps finds webapps which can answer to the intent from
+// non-installed instance webapps
+func (in *Intent) FindAvailableWebapps(inst *instance.Instance) error {
 	installedWebApps, err := app.ListWebapps(inst)
 	if err != nil {
 		return err
@@ -143,7 +145,6 @@ func (in *Intent) FindAvailableServices(inst *instance.Instance) error {
 
 	endSlugs := []string{}
 	webapps, err := GetInstanceWebapps(inst)
-	res := []*app.WebappManifest{}
 
 	for _, wa := range webapps {
 		found := false
@@ -158,24 +159,42 @@ func (in *Intent) FindAvailableServices(inst *instance.Instance) error {
 		}
 	}
 
+	var lastsVersions sync.Map
+	versionsChan := make(chan app.WebappManifest)
+	errorsChan := make(chan error)
+
 	for _, webapp := range endSlugs {
-		webappMan := app.WebappManifest{}
-		v, err := registry.GetLatestVersion(webapp, "stable", inst.Registries())
-		if err != nil {
-			continue
-		}
-		err = json.NewDecoder(bytes.NewReader(v.Manifest)).Decode(&webappMan)
-		if err != nil {
-			return err
-		}
-		res = append(res, &webappMan)
+		go func(webapp string, instance *instance.Instance) {
+			webappMan := app.WebappManifest{}
+			v, _ := registry.GetLatestVersion(webapp, "stable", inst.Registries())
+			err = json.NewDecoder(bytes.NewReader(v.Manifest)).Decode(&webappMan)
+			if err != nil {
+				errorsChan <- err
+				return
+			}
+
+			versionsChan <- webappMan
+		}(webapp, inst)
 	}
 
-	for _, man := range res {
-		if intent := man.FindIntent(in.Action, in.Type); intent != nil {
-			in.AvailableServices = append(in.AvailableServices, man.Slug())
+	for i := 1; i <= len(endSlugs); i++ {
+		select {
+		case <-errorsChan:
+			continue
+		case version := <-versionsChan:
+			lastsVersions.Store(version.Slug(), version)
 		}
 	}
+	close(versionsChan)
+	close(errorsChan)
+
+	lastsVersions.Range(func(versionSlug, man interface{}) bool {
+		manif := man.(app.WebappManifest)
+		if intent := manif.FindIntent(in.Action, in.Type); intent != nil {
+			in.AvailableServices = append(in.AvailableServices, versionSlug.(string))
+		}
+		return true
+	})
 
 	return nil
 }
