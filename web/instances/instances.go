@@ -573,6 +573,35 @@ func lsContexts(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+func appVersion(c echo.Context) error {
+	instances, err := instance.List()
+	if err != nil {
+		return nil
+	}
+	appSlug := c.Param("slug")
+	version := c.Param("version")
+
+	var instancesAppVersion []string
+	var doc app.WebappManifest
+
+	for _, instance := range instances {
+		err := couchdb.GetDoc(instance, consts.Apps, consts.Apps+"/"+appSlug, &doc)
+		if err == nil {
+			if doc.Version() == version {
+				instancesAppVersion = append(instancesAppVersion, instance.Domain)
+			}
+		}
+	}
+
+	i := struct {
+		Instances []string `json:"instances"`
+	}{
+		instancesAppVersion,
+	}
+
+	return c.JSON(http.StatusOK, i)
+}
+
 func wrapError(err error) error {
 	switch err {
 	case instance.ErrNotFound:
@@ -619,4 +648,5 @@ func Routes(router *echo.Group) {
 	router.GET("/:domain/swift-prefix", getSwiftBucketName)
 	router.POST("/:domain/auth-mode", setAuthMode)
 	router.GET("/contexts", lsContexts)
+	router.GET("/show-app-version/:slug/:version", appVersion)
 }
