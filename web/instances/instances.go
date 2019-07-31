@@ -648,6 +648,6 @@ func Routes(router *echo.Group) {
 	router.GET("/:domain/swift-prefix", getSwiftBucketName)
 	router.POST("/:domain/auth-mode", setAuthMode)
 	router.GET("/contexts", lsContexts)
-	router.GET("/show-app-version/:slug/:version", appVersion)
+	router.GET("/with-app-version/:slug/:version", appVersion)
 	router.POST("/:domain/fixers/content-mismatch", contentMismatchFixer)
 }
